@@ -166,11 +166,10 @@ def get_zillow_data():
 
 
     query = '''
-    SELECT id, bedroomcnt, bathroomcnt, calculatedfinishedsquarefeet, poolcnt, fireplacecnt, garagecarcnt , yearbuilt, lotsizesquarefeet, fips, taxvaluedollarcnt, transactiondate, propertylandusetypeid
+    SELECT parcelid, bedroomcnt, bathroomcnt, calculatedfinishedsquarefeet, poolcnt, pooltypeid2, pooltypeid10 , fireplacecnt, garagecarcnt , yearbuilt, lotsizesquarefeet, latitude, longitude, regionidcounty, regionidzip, fips, taxvaluedollarcnt, transactiondate, propertylandusetypeid
     FROM `properties_2017`
-    JOIN `predictions_2017` USING (id)
-    WHERE `propertylandusetypeid` = "261"
-
+    JOIN `predictions_2017` USING (parcelid)
+    WHERE `propertylandusetypeid` = "261" and transactiondate LIKE '2017%%'
     '''
     print('Getting a fresh copy from SQL database...')
     df = pd.read_sql(query, url)
