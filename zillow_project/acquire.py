@@ -166,7 +166,9 @@ def get_zillow_data():
 
 
     query = '''
-    SELECT parcelid, bedroomcnt, bathroomcnt, calculatedfinishedsquarefeet, poolcnt, pooltypeid2, pooltypeid10 , fireplacecnt, garagecarcnt , numberofstories, yearbuilt, lotsizesquarefeet, latitude, longitude, regionidcounty, regionidzip, fips, taxvaluedollarcnt, transactiondate, propertylandusetypeid
+    SELECT parcelid, bedroomcnt, bathroomcnt, calculatedfinishedsquarefeet, poolcnt, pooltypeid2, hashottuborspa , 
+    fireplacecnt, garagecarcnt , numberofstories, airconditioningtypeid, heatingorsystemtypeid, yearbuilt, lotsizesquarefeet, latitude, longitude, regionidcounty, 
+    regionidzip, fips, taxvaluedollarcnt, transactiondate, propertylandusetypeid
     FROM `properties_2017`
     JOIN `predictions_2017` USING (parcelid)
     WHERE `propertylandusetypeid` = "261" and transactiondate LIKE '2017%%'
