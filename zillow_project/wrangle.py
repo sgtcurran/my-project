@@ -6,6 +6,7 @@ import re
 from scipy.stats import chi2_contingency, ttest_ind
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, RocCurveDisplay
+from scipy import stats
 
 
 import seaborn as sns
@@ -426,13 +427,18 @@ def X_full_y_full(df):
     return X_full, y_full
 
 #%%
-def wrangle_zillow(df):
-    # to make it easier to read and improve visualization I will be renameing the columns using the rename function
-    df_prep = df_prep.rename(columns={'bedroomcnt':'bedrooms', 'bathroomcnt':'bathrooms', 'calculatedfinishedsquarefeet':'sqft_living',
-    'poolcnt':'num_pools', 'pooltypeid2':'pool_w_spa_or_hottub','hashottuborspa':'has_hottub_or_spa' ,'fireplacecnt':'fireplaces', 
-    'garagecarcnt':'garage_cars', 'airconditioningtypeid':'ac_type','heatingorsystemtypeid':'heating_type' ,'yearbuilt':'year_built', 'lotsizesquarefeet':'sqft_lot', 
-    'latitude':'lat', 'longitude':'long', 'regionidcounty':'countyid', 'regionidzip':'zip', 'fips':'fips','taxvaluedollarcnt': 'taxvalue'}
-)
+def wrangle_zillow(df_prep):
+    """
+    Converts NaN values in bathroom/bedrooms/pool,pool w/hot tube/spa, has spa/hot tub to value 0, replace
+    air & heating with correct values and impute with NaN to most frequent value, drop top four outliers in taxvalue,
+    drops rows with NaN values, convert fips code to county and rename column to county, rename all columns for readablity,
+    splits data using sklean.train_test_split. 
+    
+
+    Returns:
+    train, validat, test
+    
+    """
     # Since there is not a good way to calulate missing values regarding bedrooms & bathrooms and there are
     # only 137 values total I will be converting them to np.NaN using the replace function.
     bed_bath_0_columns = ['bedroomcnt', 'bathroomcnt']
@@ -464,3 +470,97 @@ def wrangle_zillow(df):
     'garagecarcnt':'garage_cars', 'airconditioningtypeid':'ac_type','heatingorsystemtypeid':'heating_type' ,'yearbuilt':'year_built', 'lotsizesquarefeet':'sqft_lot', 
     'latitude':'lat', 'longitude':'long', 'regionidcounty':'countyid', 'regionidzip':'zip', 'fips':'fips','taxvaluedollarcnt': 'taxvalue'}
     )
+    # drop all rows with NaN values
+    df_prep = df_prep.dropna(axis=0)
+    df_prep = df_prep.reset_index(drop=True)
+
+    # drop the top 4 upper outliers in taxvalue
+    df_prep.drop([2874,8881,11695,6787], axis=0, inplace=True)
+
+    # convert fips to county 
+    df_prep['fips'] = df_prep['fips'].replace(6111.0, 'Ventura, CA')
+    df_prep['fips'] = df_prep['fips'].replace(6059.0, 'Orange, CA')
+    df_prep['fips'] = df_prep['fips'].replace(6037.0, 'Los Angeles, CA')
+
+    # drop countyid & long/lat columns
+    df_prep.drop(columns=['countyid'], inplace=True)
+    df_prep.drop(columns=['long'], inplace=True)
+    df_prep.drop(columns=['lat'], inplace=True)
+
+    # rename fips to county
+    df_prep = df_prep.rename(columns={'fips':'county'})
+
+    # split data into train, validation, and test
+    train_validate, test = train_test_split(df_prep, test_size=0.2, random_state=123)
+    train, validate = train_test_split(train_validate, test_size=0.3, random_state=123)
+    return train, validate, test
+
+#%%
+def corrstatsgraphs3(df):
+    """
+    Description
+    ----
+    Outputs the general statistical description of the dataframe,
+    outputs the correlation heatmap with target label, and outputs a distribution plot.
+    
+    Parameters
+    ----
+    df(DataFrame):
+        The dataframe for which information will be displayed.
+        
+    Returns
+    ----
+    useful stats, correlation, and subplots
+    
+    """
+       
+    # Heatmap with min -1 to max 1 to all variables
+    # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.corr.html
+    corr = df.corr()
+    plt.subplots(figsize=(22, 17))
+    plt.title("Heatmap", fontsize = 'x-large')
+    mask = np.triu(np.ones_like(corr, dtype=bool))
+    cmap = sns.diverging_palette(230, 21, as_cmap=True)
+    sns.heatmap(corr, annot=True, mask = mask, cmap=cmap, vmin=-1, vmax=1
+    )
+    # Correlation Heatmap with min -1 to max 1 in conjuction with pd.corr 
+    plt.figure(figsize=(10, 8)) 
+    plt.title("Heatmap", fontsize = 'x-large')
+    sns.heatmap(df.corr()[['taxvalue']].sort_values(by='taxvalue', 
+    ascending=False), vmin=-1, vmax=1, annot=True, cmap='BrBG'
+    )
+    # Correlation Heatmap with min -1 to max 1 in conjuction with pd.corr
+    plt.figure(figsize=(16,10))
+    df.corr()['taxvalue'].sort_values(ascending=False).plot(kind='bar', figsize=(20,5), cmap='BrBG'
+    )
+        
+    sns.jointplot(x="bedrooms", y="taxvalue", data=df,  kind='reg', height=5, line_kws={'color': 'red'}
+    )
+    sns.jointplot(x="bedrooms", y="taxvalue", data=df,  kind='kde', line_kws={'color': 'red'}
+    )
+    sns.jointplot(x="bathrooms", y="taxvalue", data=df, ratio=5, kind='reg', height=5, line_kws={'color': 'red'}
+    )
+    sns.jointplot(x="bathrooms", y="taxvalue", data=df,  kind='kde', line_kws={'color': 'red'}
+    )
+    fig, ax = plt.subplots(figsize=(13, 7))
+    r, p = stats.pearsonr(df.sqft_living, df.taxvalue)
+    sns.scatterplot(data=df, x=df.sqft_living, y=df.taxvalue,ci=None, ax=ax)
+    ax.set(
+    xlabel='Sqft Living',
+    ylabel='tax value',
+    title='Sqft Living vs. tax value',
+    )
+    text = f'r = {r:.4f}, p = {p:.4f}'
+    ax.text(25, 120, text, va='top', ha='right'
+    )
+    fig, ax = plt.subplots(figsize=(13, 7))
+    r, p = stats.pearsonr(df.sqft_lot, df.taxvalue)
+    sns.scatterplot(data=df, x=df.sqft_lot, y=df.taxvalue,ci=None)
+    ax.set(
+    xlabel='sqft lot',
+    ylabel='tax value',
+    title='Sqft Living vs. tax value',
+    )
+    text = f'r = {r:.4f}, p = {p:.4f}'
+    ax.text(25, 120, text, va='top', ha='right')
+    plt.show()
